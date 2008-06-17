@@ -1,0 +1,2 @@
+-record(broker_state,{connection,channel,ticket}).
+-record(shovel_state,{local,remote,exchange,routing_key}).
