@@ -25,11 +25,12 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-init(_) ->
+init(Args) ->
+    {ok, RemoteHost} = application:get_env(remote_host),
     {ok, {{one_for_one, 5, 10}, 
     [
         {shovel, 
-        {shovel, start_link, []}, 
+        {shovel, start_link, [RemoteHost]}, 
         permanent,10000,worker,
         [shovel]}
     ]}}.

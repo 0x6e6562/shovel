@@ -10,6 +10,7 @@
              ]},
   {registered, [shovel,shovel_supervisor]},
   {applications, [kernel,stdlib,rabbit]},
-  {mod, {shovel_application, []} }
+  {mod, {shovel_application, []} },
+  {env, [{remote_host, "192.168.1.66"}]}
  ]
 }.

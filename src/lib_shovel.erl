@@ -1,4 +1,4 @@
--module(lib_module).
+-module(lib_shovel).
 
 -include_lib("rabbitmq_server/include/rabbit.hrl").
 -include_lib("rabbitmq_server/include/rabbit_framing.hrl").
@@ -35,6 +35,13 @@ bind_queue(Channel, Ticket, Q, X, BindKey) ->
     amqp_channel:call(Channel, QueueBind),
     ok.
     
+delete_queue(Channel,Ticket,Q) ->
+    QueueDelete = #'queue.delete'{ticket = Ticket, queue = Q,
+                                  if_unused = false,
+                                  if_empty = false,
+                                  nowait = true},
+    #'queue.delete_ok'{} = amqp_channel:call(Channel, QueueDelete).    
+    
 declare_exchange(Channel,Ticket,X) ->
     ExchangeDeclare = #'exchange.declare'{ticket = Ticket, exchange = X,
                                           type = <<"direct">>,
@@ -49,15 +56,20 @@ subscribe(Channel,Ticket,Q,Consumer) ->
                                     exclusive = false, nowait = false},
     amqp_channel:call(Channel,BasicConsume, Consumer).
 
-forward(Channel,Ticket,X,RoutingKey,Payload) ->
+unsubscribe(Channel,Tag) ->
+    BasicCancel = #'basic.cancel'{consumer_tag = Tag, nowait = false},
+    #'basic.cancel_ok'{consumer_tag = ConsumerTag} = amqp_channel:call(Channel,BasicCancel),
+    ok.    
+
+publish(Channel,Ticket,X,RoutingKey,Payload) ->
     BasicPublish = #'basic.publish'{ticket = Ticket,
                                     exchange = X,
                                     routing_key = RoutingKey,
                                     mandatory = false,immediate = false},
     %ReplyProps = #'P_basic'{correlation_id = CorrelationId},
     Content = #content{class_id = 60, %% TODO HARDCODED VALUE
-                       %properties = ReplyProps, 
-                       properties_bin = 'none',
+                       properties = amqp_util:basic_properties(), 
+                       properties_bin = none,
                        payload_fragments_rev = [Payload]},
     amqp_channel:cast(Channel, BasicPublish, Content).
 

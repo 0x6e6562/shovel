@@ -23,7 +23,7 @@
 -behaviour(gen_server).
 
 -export([start/0,stop/0]).
--export([start_link/0]).
+-export([start_link/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 %---------------------------------------------------------------------------
@@ -35,30 +35,29 @@ start() ->
 stop() ->
     application:stop(shovel).
 
-start_link() -> 
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
     
 %---------------------------------------------------------------------------
 % gen_server callbacks
 %---------------------------------------------------------------------------
 
-init(Args) ->
-    RemoteHost = "1.2.3.4",
-    LocalX = <<"shovel_exchange">>,
-    RemoteX = <<"shovel_foreign_exchange">>,
-    RoutingKey = <<"k">>,
-    BindKey = <<"shovel">>,
+init(RemoteHost) ->
+    LocalX = <<"X">>,
+    RemoteX = <<"">>,
+    RoutingKey = <<"q">>,
+    BindKey = <<"">>,
     Realm = <<"/data">>,
-    Q = <<"shovel_queue">>,
+    Q = <<"q">>,
 
-    LocalConnection = lib_petstore:start_connection(),
-    {LocalChannel,LocalTicket} = lib_petstore:start_channel(LocalConnection),
-    lib_petstore:bind_queue(LocalChannel, LocalTicket, Q, LocalX, BindKey),
-    lib_petstore:subscribe(LocalChannel,LocalTicket,Q,self()),
+    LocalConnection = lib_shovel:start_connection(),
+    {LocalChannel,LocalTicket} = lib_shovel:start_channel(LocalConnection),
+    lib_shovel:bind_queue(LocalChannel, LocalTicket, Q, LocalX, BindKey),
+    lib_shovel:subscribe(LocalChannel,LocalTicket,Q,self()),
 
-    RemoteConnection = lib_petstore:start_connection(RemoteHost),
-    {RemoteChannel,RemoteTicket} = lib_petstore:start_channel(RemoteConnection),
-    lib_petstore:declare_exchange(RemoteChannel, RemoteTicket, RemoteX),
+    RemoteConnection = lib_shovel:start_connection(RemoteHost),
+    {RemoteChannel,RemoteTicket} = lib_shovel:start_channel(RemoteConnection),
+    lib_shovel:declare_exchange(RemoteChannel, RemoteTicket, RemoteX),
 
     LocalState = #broker_state{connection = LocalConnection,
                                channel = LocalChannel,
@@ -95,8 +94,8 @@ handle_info({#'basic.deliver'{consumer_tag = ConsumerTag},
                                                           ticket = Ticket},
                                    exchange = X,
                                    routing_key = RoutingKey}) ->
-    
-    lib_shovel:forward(Channel,Ticket,X,RoutingKey,Payload),
+    io:format("Forwarding msg ~p~n",[Payload]),
+    lib_shovel:publish(Channel,Ticket,X,RoutingKey,Payload),
     {noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
